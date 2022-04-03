@@ -1,0 +1,23 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@4.3.1/dist/css/bootstrap.min.css"
+          integrity="sha384-ggOyR0iXCbMQv3Xipma34MD+dH/1fQ784/j6cY/iJTQUOhcWr7x9JvoRxT2MZw1T" crossorigin="anonymous">
+    <title>MD5 collision attack</title>
+</head>
+<body>
+<h1>MD5 Collision Attack</h1>
+
+<form action="/download" method="post">
+    <label for="good">What should a GOOD program output?</label>
+    <input type="text" class="form-control col-4" id="good" name="good-text"
+           placeholder="Eg. I'm a GOOD program. I don't do any harm :)"
+           value="I'm a GOOD program. I don't do any harm :)">
+    <label for="bad">What should a BAD program output?</label>
+    <input type="text" class="form-control col-4" id="bad" name="bad-text"
+           placeholder="Eg. I'm a BAD program. I steal all your data" value="I'm a BAD program. I steal all your data">
+    <button type="submit" class="btn btn-primary" name="submit">Download</button>
+</form>
+</body>
+</html>
