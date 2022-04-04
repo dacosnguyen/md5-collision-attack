@@ -37,7 +37,7 @@ app.post("/download", function (req, res) {
     const md5CollisionGenerator = "make2collExecs.out"
     const sourceCode = "SourceCode.cpp"
 
-    var sourceExec = "sourceExec"
+    const sourceExec = "sourceExec";
     copyGenerator(uuid, rootPath, origGeneratorPath, newGeneratorPath, md5CollisionGenerator)
     generateCollisions(uuid, sourceExec, newGeneratorPath, sourceCode)
     generateCollidingPrograms(uuid, newGeneratorPath, md5CollisionGenerator, sourceExec)
