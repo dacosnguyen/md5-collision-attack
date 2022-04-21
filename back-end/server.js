@@ -1,13 +1,10 @@
 const express = require("express")
 const zip = require('express-zip')
-const fs = require('fs')
 const bodyParser = require("body-parser")
-const wrench = require('wrench')
-var rimraf = require("rimraf")
-var path = require('path')
-var execSync = require('child_process').execSync
+const path = require('path');
 const {v4: uuidv4} = require('uuid')
-const {symlink} = require("fs")
+const {Worker} = require("worker_threads");
+const rimraf = require("rimraf");
 
 const app = express()
 app.use(bodyParser.urlencoded({extended: true}))
@@ -24,65 +21,37 @@ app.get("/", function (req, res) {
 })
 
 app.post("/download", function (req, res) {
-    const uuid = process.env.NODE_ENV === "dev" ? "test" : uuidv4()
-    const origGeneratorPath = `${rootPath}/md5-collision-generator/generator`
-    const newGeneratorPath = `${rootPath}/md5-collision-generator/generator_${uuid}`
-    const md5CollisionGenerator = "make2collExecs.out"
-    const sourceCodeTemplate = "SourceCode.cpp.template"
-    const sourceExec = "sourceExec"
-
-    copyGenerator(uuid, rootPath, origGeneratorPath, newGeneratorPath, md5CollisionGenerator)
-    rewriteOutputTexts(uuid, newGeneratorPath, sourceCodeTemplate, req.body.good_text, req.body.bad_text)
-    generateCollisions(uuid, sourceExec, newGeneratorPath, sourceCodeTemplate)
-    generateCollidingPrograms(uuid, newGeneratorPath, md5CollisionGenerator, sourceExec)
-
-    respondWithZIP(res, newGeneratorPath)
-
-    removeGeneratedFolder(newGeneratorPath)
+    let uuid = uuidv4()
+    console.info(`------------ ${uuid} ------------ `)
+    let newGeneratorPath = `${rootPath}/md5-collision-generator/generator_${uuid}`
+    const worker = new Worker('./generate_collision_and_respond.js', {  // CPU intensive tasks
+        workerData: {
+            good_text: req.body.good_text,
+            bad_text: req.body.bad_text,
+            rootPath: rootPath,
+            uuid: process.env.NODE_ENV === "dev" ? "test" : uuid,
+            origGeneratorPath: `${rootPath}/md5-collision-generator/generator`,
+            newGeneratorPath: newGeneratorPath,
+            md5CollisionGenerator: "make2collExecs.out",
+            sourceCodeTemplate: "SourceCode.cpp.template",
+            sourceExec: "sourceExec"
+        }
+    })
+    worker.on('message', (msg) => {
+        respondWithZIP(res, uuid, newGeneratorPath)
+        removeGeneratedFolder(newGeneratorPath)
+        console.log(`${uuid} worker done!`)
+    })
+    worker.on('error', err => {
+        console.error(`${uuid}: ${err}`)
+    })
+    worker.on('exit', exitCode  => {
+        console.error(`${uuid}: worker exit code ${exitCode}`)
+    })
 })
 
-function copyGenerator(uuid, rootPath, origGeneratorPath, newGeneratorPath, md5CollisionGenerator) {
-    console.info(`${uuid}: Copying generator  ...`)
-    wrench.copyDirSyncRecursive(origGeneratorPath, newGeneratorPath)
-    fs.symlink(`${rootPath}/md5-collision-generator/boostLib`, `${newGeneratorPath}/boostLib`, "dir", (err) => {
-        console.error(err)
-    })
-    fs.chmodSync(`${newGeneratorPath}/${md5CollisionGenerator}`, '777')
-    console.info(`${uuid}: Copying generator DONE`)
-}
-
-function rewriteOutputTexts(uuid, newGeneratorPath, sourceCodeTemplate, goodText, badText) {
-    console.info(`${uuid}: Rewriting output texts  ...`)
-    goodText = goodText.replace(";", "") // no C++ code injection
-    badText = badText.replace(";", "") // no C++ code injection
-    fs.readFile(`${newGeneratorPath}/${sourceCodeTemplate}`, 'utf8', function (err, data) {
-        if (err) {
-            return console.log(err)
-        }
-        const result = data
-            .replace(/\$good_text_placeholder\$/g, `\"${goodText}\"`)
-            .replace(/\$bad_text_placeholder\$/g, `\"${badText}\"`)
-
-        fs.writeFile(`${newGeneratorPath}/${sourceCodeTemplate.replace(".template", "")}`, result, 'utf8', function (err) {
-            if (err) return console.log(err)
-        })
-    })
-    console.info(`${uuid}: Rewriting output texts  DONE`)
-}
-
-function generateCollisions(uuid, sourceExec, newGeneratorPath, sourceCodeTemplate) {
-    console.info(`${uuid}: Generating collisions ...`)
-    process.env.NODE_ENV === "dev" ? console.log("NO EXEC! DEV mode enabled!") : execSync(`g++ -o ${sourceExec} ${newGeneratorPath}/${sourceCodeTemplate}`)
-    console.info(`${uuid}: Generating collisions DONE`)
-}
-
-function generateCollidingPrograms(uuid, newGeneratorPath, md5CollisionGenerator, sourceExec) {
-    console.info(`${uuid}: Generating colliding programs ...`)
-    process.env.NODE_ENV === "dev" ? console.log("NO EXEC! DEV mode enabled!") : execSync(`cd ${newGeneratorPath} && ./${md5CollisionGenerator} ${sourceExec}`)
-    console.info(`${uuid}: Generating colliding programs DONE`)
-}
-
-function respondWithZIP(res, newGeneratorPath) {
+function respondWithZIP(res, uuid, newGeneratorPath) {
+    console.info(`${uuid}: Sending ZIP ...`)
     res.zip([
         {
             path: `${newGeneratorPath}/bad_executable.out`,
@@ -93,11 +62,12 @@ function respondWithZIP(res, newGeneratorPath) {
             name: 'good_executable.out'
         }
     ], "colliding_md5_c++_programs.zip")
+    console.info(`${uuid}: Sending ZIP DONE`)
 }
 
 function removeGeneratedFolder(newGeneratorPath) {
     process.env.NODE_ENV === "dev"
-        ? console.log("NO EXEC! DEV mode enabled!")
+        ? console.debug(`DEV MODE: Not deleting the ${newGeneratorPath}!`)
         : rimraf(newGeneratorPath, function () {
             console.log(`${newGeneratorPath} removed`)
         })

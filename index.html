@@ -9,7 +9,7 @@
 <body>
 <h1>MD5 Collision Attack</h1>
 
-<form action="/download" method="post">
+<form action="/download" method="post" id="generate-collision-and-download-form" onsubmit="disableButton()">
     <label for="good">What should a GOOD program output?</label>
     <input type="text" class="form-control col-4" id="good" name="good_text"
            placeholder="Eg. I'm a GOOD program. I don't do any harm :)"
@@ -17,7 +17,22 @@
     <label for="bad">What should a BAD program output?</label>
     <input type="text" class="form-control col-4" id="bad" name="bad_text"
            placeholder="Eg. I'm a BAD program. I steal all your data" value="I'm a BAD program. I steal all your data">
-    <button type="submit" class="btn btn-primary" name="submit">Download</button>
+    <button type="submit" id="download-button" class="btn btn-primary" name="submit">Download</button>
+    <button hidden id="loading-button" class="btn btn-primary" type="button" disabled>
+        <span class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span>
+        Generating MD5 hash collisions...
+    </button>
 </form>
+
+<script>
+    function disableButton() {
+        const btn = document.getElementById('download-button');
+        btn.disabled = true;
+        btn.hidden = true;
+        const loadingBtn = document.getElementById('loading-button');
+        loadingBtn.hidden = false;
+    }
+</script>
+
 </body>
 </html>
